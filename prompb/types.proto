@@ -54,6 +54,50 @@ message Exemplar {
   int64 timestamp = 3;
 }
 
+// A sparse histogram.
+message Histogram {
+  enum ResetHint {
+    UNKNOWN = 0; // Need to test for a counter reset explicitly.
+    YES     = 1; // This is the 1st histogram after a counter reset.
+    NO      = 2; // There was no counter reset between this and the previous Histogram.
+    GAUGE   = 3; // This is a gauge histograms where counter resets don't happen.
+  }
+  
+  uint64 count       = 1;
+  double count_float = 2; // Overrides count if > 0.
+  double sum         = 3;
+  // The schema defines the bucket schema. Currently, valid numbers
+  // are -4 <= n <= 8. They are all for base-2 bucket schemas, where 1
+  // is a bucket boundary in each case, and then each power of two is
+  // divided into 2^n logarithmic buckets. Or in other words, each
+  // bucket boundary is the previous boundary times 2^(2^-n). In the
+  // future, more bucket schemas may be added using numbers < -4 or >
+  // 8.
+  sint32 schema             = 4;
+  double zero_threshold     = 5; // Breadth of the zero bucket.
+  uint64 zero_count         = 6; // Count in zero bucket.
+  double zero_count_float   = 7; // Overrides sb_zero_count if > 0.
+  Buckets negative_buckets  = 8;
+  Buckets positive_buckets  = 9;
+  ResetHint reset_hint      = 10;
+  // timestamp is in ms format, see model/timestamp/timestamp.go for
+  // conversion from time.Time to Prometheus timestamp.
+   int64 timestamp = 11;
+} 
+
+// Sparse buckets.
+message Buckets {
+  message Span {
+    sint32 offset = 1; // Gap to previous span, or starting point for 1st span (which can be negative).
+    uint32 length = 2; // Length of consecutive buckets.
+  }
+  repeated Span span = 1;
+  // Only one of "delta" or "count" may be used, the former for regular
+  // histograms with integer counts, the latter for float histograms.
+  repeated sint64 delta = 2; // Count delta of each bucket compared to previous one (or to zero for 1st bucket).
+  repeated double count = 3; // Absolute count of each bucket.
+}
+
 // TimeSeries represents samples and labels for a single time series.
 message TimeSeries {
   // For a timeseries to be valid, and for the samples and exemplars
@@ -61,6 +105,7 @@ message TimeSeries {
   repeated Label labels   = 1 [(gogoproto.nullable) = false];
   repeated Sample samples = 2 [(gogoproto.nullable) = false];
   repeated Exemplar exemplars = 3 [(gogoproto.nullable) = false];
+  repeated Histogram histograms = 4 [(gogoproto.nullable) = false];
 }
 
 message Label {
