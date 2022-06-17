@@ -11,6 +11,5 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: '>= 16'
-      - run: npm install -g bats
-      - run: bats -v
-      - run: go version
+      - run: make build
+      - run: ls -lR .
